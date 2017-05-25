@@ -62,5 +62,4 @@ testResult = sum(predict == eval[, 11])
 testAcc = testResult / length(predict)
 
 # Compare results graphically
-plot(kresults, main = "KNN Accuracy by k", xlab = "Numeber k", 
-     ylab = "Accuracy", xlim = c(1, 100), ylim = c(0.8, 0.9))
+plot(model)
