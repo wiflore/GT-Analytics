@@ -1,0 +1,207 @@
+---
+output: html_document
+---
+title: "HW2"
+author: "William Florez"
+date: "31 de mayo de 2017"
+github: https://github.com/wiflore
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+## HW2
+
+###Question 1
+
+A clustering problem for could be *Fixed Income - Treasuries Asset Allocation*	
+
+**The possible outcome could be:**  
+
+1. Long run bonds looks better vs Short Term bonds
+2. Short run bonds looks better vs Long Term bonds
+3. Long run bonds looks and Short Term bonds looks good
+4. Long run bonds looks and Short Term bonds looks bad
+
+**As a predictors I could use:**  
+CPI actual  
+CPI Forecast  	
+Central Bank Rate	actual  
+Central Bank Forecast	
+GDP actual  
+GDP Forecast  
+Consumer Sentiment  
+Private Payrolls  
+Dividend Yield vs Corporate Bond Yield  
+US vs German bonds yield spread  
+Leading indicators  
+US 2year vs US 10year yield spread  
+
+
+###Question 2
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+library(gplots)
+library(datasets)
+library(ggplot2)
+
+set.seed(123)
+
+data <- iris
+head(data)
+x = data[,-5]
+y = data$Species
+
+kcx <- kmeans(x, 3, nstart = 20) 
+kcx
+
+#Check correlation for looking improvements
+cor(x)
+#Sepal.Width very uncorrelated variable
+#Rerunning without Sepal.width
+z = x[,-2]
+kcz <- kmeans(z, 3, nstart = 20) 
+kcz
+#Comparing Results
+table(y,kcx$cluster)
+table(y,kcz$cluster)
+#Nothing Improve. So I will test with the most correlated variables Petal.Lengh and Petal.Width
+w = z[,-1]
+kcw <- kmeans(w, 3, nstart = 20) 
+kcw
+
+table(y,kcz$cluster)
+table(y,kcw$cluster)
+#That looks better 
+
+#Ploting
+plot(x[c("Petal.Length", "Petal.Width")], col=kcw$cluster)
+points(kcw$centers[,c("Petal.Length", "Petal.Width")], col=1:3, pch=20, cex=3)
+
+kcw$cluster <- as.factor(kcw$cluster)
+ggplot(data, aes(Petal.Length, Petal.Width, color = kcw$cluster)) + geom_point() 
+
+#Is this were a unsupervised problem the best way to determine the K is looking the sum of squares
+
+wss = NULL
+##Looking best k for unsupervised problem
+for (i in 1:50) wss[i] <- sum(kmeans(x,
+                                     centers = i)$withinss)
+plot(1:50, wss, type = "b", xlab = "Number of Clusters",
+     ylab = "Within groups sum of squares")
+
+#Clustering with K = 20
+kc <- kmeans(x,20)
+kc
+table(y,kc$cluster)
+
+plot(x[c("Petal.Length", "Petal.Width")], col=kc$cluster)
+points(kc$centers[,c("Petal.Length", "Petal.Width")], col=1:20, pch=20, cex=2)
+#This is hard to analyze and looks overfitting
+
+
+```
+
+To summarize
+
+**The best	combination	of	predictors are:**
+Petal.Length and Petal.Width
+
+**My	suggested	value	of	k** = 3, because we already know there are 3 classes. Evaluating ebow chart a k betweetn 20-30 could reduce error squares but looks overfitting and hard to interpreted 
+
+**How	well	your	best	clustering	predicts	flower	type:** 96% of accuracy
+
+###Question 3
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library(outliers)
+library(ggplot2)
+library(RCurl)
+
+data <- getURL("http://www.statsci.org/data/general/uscrime.txt")
+data = read.table(text = data, header = TRUE)
+  
+X <- data$Crime
+grubbs.flag <- function(x) {
+  outliers <- NULL
+  test <- x
+  grubbs.result <- grubbs.test(test)
+  pv <- grubbs.result$p.value
+  while(pv < 0.1) {
+    outliers <- c(outliers,as.numeric(strsplit(grubbs.result$alternative," ")[[1]][3]))
+    test <- x[!x %in% outliers]
+    grubbs.result <- grubbs.test(test)
+    pv <- grubbs.result$p.value
+  }
+  return(data.frame(X=x,Outlier=(x %in% outliers)))
+}
+
+# Plot the outliers highlighted in colour:
+
+ggplot(grubbs.flag(X),aes(x=X,color=Outlier,fill=Outlier))+
+  geom_histogram(binwidth=diff(range(X))/30)+
+  theme_bw()
+
+
+grubbs.flag(X)
+d = density(X)
+boxplot(X)
+plot(d)
+boxplot.stats(X)$out
+
+#The initial conclusion is that highest-crime is a outlier with a cofident of 
+#let see clustering for better understading
+
+wss = NULL
+##Looking best k for unsupervised problem
+for (i in 1:10) wss[i] <- sum(kmeans(X,
+                                     centers = i)$withinss)
+plot(1:10, wss, type = "b", xlab = "Number of Clusters",
+     ylab = "Within groups sum of squares")
+
+#ebow chart suggets k = 4 so let cluster the data
+
+k = 4
+kc = kmeans(X, centers = k)
+kc
+
+
+clusters = kc$cluster
+testing = data
+testing = data.frame(scale(testing))
+testing$Clusters = factor(clusters, levels = 1:k, 
+                          labels = letters[1:k]) 
+table(clusters)
+aggregate(data, by = list(testing$Clusters),FUN = mean)
+
+#There are not a clusters near to highst data crime
+
+```
+
+**Is	the	lowest-crime	city	an	outlier?**	No because the distrubution of the crime has more density to the right, so is considered a more normal data	
+
+**Is	the	highest-crime	city	an	outlier?**	Could be, the answer for a first insight is yes, the point is very distant from the median. I look more information clustering the data and clusters did't shows that highest-crime is near to ones of them. However is necessary a more depper analysis to determinate if is really a outlier/rare or should be consider as a event to take into account.  
+
+###Question 4
+I could use CUSUM with the differences of returns between a stock and its peers.  
+For example, **the critical value** is the difference of the cummulative return of APPLE vs its peers (AMAZON, GOOGLE, SAMSUNG, ETC) cross some point it point that something it is happening with the company and could be a signal to buy or sell subject to if cross is negative or positive.  
+
+###Question 5 - look excel file
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library(outliers)
+library(ggplot2)
+library(RCurl)
+
+data <- getURL("https://d37djvu3ytnwxt.cloudfront.net/assets/courseware/v1/592f3be3e90d2bdfe6a69f62374a1250/asset-v1:GTx+ISYE6501x+2T2017+type@asset+block/temps.txt")
+data = read.table(text = data, header = TRUE)
+
+plot(data)
+
+```
+
