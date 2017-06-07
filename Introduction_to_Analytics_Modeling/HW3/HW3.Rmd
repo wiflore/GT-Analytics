@@ -1,0 +1,157 @@
+---
+title: "HW3"
+author: "Will"
+date: "7 de junio de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+
+
+
+```
+
+
+## HW3
+
+###Question 1
+
+A situation in my work where I might use exponential smoothing could be inflation forecast. We use CPI as a input for expected rate of return. Monthly CPI tend to looks seasonally with respect to its history. So I could use a algoritm to determinate the best smoothing parameter, choises the lower square error. If that not the case I think that I could use 0.5. 
+
+
+
+###Question 2
+
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library(forecast)
+
+
+setwd("C:/Users/ce02144/Documents/HW3")
+#Reading data
+weather <- read.table("temps2.txt", header = TRUE)
+
+#Converting to timeserie
+weather.ts <- ts(weather[,2:21], 
+                 frequency = 123)
+
+#Create model
+model = HoltWinters(x = weather.ts, beta = FALSE, seasonal = "multiplicative")
+
+#Exploring results
+model
+
+plot(fitted(model), plot.conf=FALSE, type="o", fcol="white", xlab="Time")
+
+```
+
+The level in fitted results shows that end of summer has been gotten later in recent years. However, taking into account the 20year history that trend is not very clear.  
+
+
+###Question 3
+
+A linear regression problem for could be *Colombian Currency Forecast*	
+
+
+**As a predictors I could use:**  
+CPI actual  
+CPI Forecast  	
+Central Bank Rate	actual  
+Central Bank Forecast	
+GDP actual  
+Consumer Sentiment  
+US vs Colombian bonds yield spread
+Price of insurance cost for colombian goverment debt
+
+
+
+###Question 4
+
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+
+library(ggplot2)
+library(MASS)
+library(leaps)
+library(relaimpo)
+
+setwd("C:/Users/ce02144/Documents/HW3")
+
+#Reading data
+uscrime <- read.table("uscrime.txt", header = TRUE)
+
+#Creating model
+model = lm(Crime~., data = uscrime) 
+
+#Analyzing model
+summary(model)
+coefficients(model)
+AIC(model)
+BIC(model)
+
+#Calculing the relative importance of predictors
+# Bootstrap Measures of Relative Importance (5 samples) 
+boot <- boot.relimp(model, b = 5, type = c("lmg"), rela = TRUE)
+plot(booteval.relimp(boot,sort = TRUE), las = 2, cex.axis = 0.5, srt = 60, adj = 1) 
+
+
+#Prediction test
+M = 14.0
+So = 0
+Ed = 10.0
+Po1 = 12.0
+Po2 = 15.5
+LF = 0.640
+M.F = 94.0
+Pop = 150
+NW = 1.1
+U1 = 0.120
+U2 = 3.6
+Wealth = 3200
+Ineq = 20.1
+Prob = 0.04
+Time = 39.0
+
+question4 <- data.frame(M, 
+                        So, 
+                        Ed, 
+                        Po1, 
+                        Po2, 
+                        LF, 
+                        M.F,
+                        Pop,
+                        NW,
+                        U1,
+                        U2,
+                        Wealth,
+                        Ineq,
+                        Prob,
+                        Time
+                        )
+
+#crime prediction
+predict(model, newdata = question4,type = "response" )
+
+#we could look for better model using leaps library
+#nbest best model for each combination.
+
+leaps <- regsubsets(Crime~., data = uscrime, nbest = 1)
+
+# Plot alternative models by bic. There are same predictors but different intercepts
+
+plot(leaps, scale = "bic")
+
+# Plot alternative models by bic. There are same predictors but different intercepts
+plot(leaps, scale = "r2")
+
+
+
+```
+
+
+
+
+
