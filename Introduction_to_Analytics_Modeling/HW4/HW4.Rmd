@@ -1,0 +1,279 @@
+---
+title: "HW4"
+author: "William Florez"
+date: "12 de junio de 2017"
+output:
+  word_document: default
+  html_document: default
+---
+
+## HW4
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###Question 1
+
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library(ggplot2)
+library(MASS)
+library(caTools)
+library(factoextra) # chart fviz_pca_var
+#library(leaps) # best combinations of predition
+#library(relaimpo) #relative importance of PCAs
+
+setwd("C:/Users/ce02144/Documents/HW4")
+
+#Reading data
+uscrime <- read.table("uscrime.txt", header = TRUE)
+str(uscrime)
+
+#PCA analysis
+uscrime.pca = prcomp(uscrime[,-16], center = TRUE, scale. = TRUE)
+summary(uscrime.pca)
+str(uscrime.pca)
+
+#compute standard deviation of each principal component
+std_dev <- uscrime.pca$sdev
+#compute variance
+pca_var <- std_dev^2
+#check variance of first 4 components
+pca_var[1:4]
+
+#proportion of variance explained by first 4 components
+prop_varex <- pca_var/sum(pca_var)
+prop_varex[1:4]
+#total proportion of variance explained by first 4 components
+sum(prop_varex[1:4])
+
+#scree plot
+plot(prop_varex, xlab = "Principal Component",
+             ylab = "Proportion of Variance Explained",
+             type = "b")
+
+#cumulative scree plot the fist 4 PCA explain near to 80% of variance. There a space that could be improve for better fit
+plot(cumsum(prop_varex), xlab = "Principal Component",
+              ylab = "Cumulative Proportion of Variance Explained", type = "b")
+
+#transform test into PCA
+#select the first 4 components
+crime.scale = scale( uscrime$Crime)
+factor.predictors = uscrime.pca$x[, 1:4]
+#I want to check what happend with all PCA
+factor.predictors.total = uscrime.pca$x[, 1:15]
+
+#running lm with PCA
+model.pca = lm(formula = crime.scale ~ factor.predictors)
+model.pca.total = lm(formula = crime.scale ~ factor.predictors.total)
+#running lm hw3
+model.hw3 = lm(Crime ~ ., data = uscrime)
+
+#Checkin how well are the first 4 PCA vs HW3
+summary(model.pca)
+summary(model.hw3)
+
+
+#R2 is pretty small, so maybe first 4-PCA are not sufficient for reduction
+
+#Just checking what happend if I use all PCA, and the results is the same R2 of HW3. It looks to have the same R2 that HW3
+
+summary(model.pca.total)
+
+#I continue with first 4 PCA
+
+#converting PCA with rotation to inicial data
+model.pca.coef <- as.vector(coef(model.pca)[-1])
+cf = uscrime.pca$rotation[,1:4] %*% t(t(model.pca$coefficients[2:5])) / uscrime.pca$scale 
+a = data.frame(cf =-setNames(as.vector(cf), rownames(cf)))
+
+#As it is very complicated to interpreted PCs I look deeper to find some insights
+
+# Correlation between variables and principal components
+var_cor_func = function(var.loadings, comp.sdev){
+var.loadings * comp.sdev
+}
+loadings = uscrime.pca$rotation
+sdev = uscrime.pca$sdev
+var.coord = var.cor = t(apply(loadings, 1, var_cor_func, sdev))
+var.coord[, 1:4]
+fviz_pca_var(uscrime.pca) 
+
+#Dim1 explain 40% and Dim2 18.7%. The most positive correlated variable in Dim1 is Wealth and in Dim2 is M.F. The most negative correlated variables in Dim1 is Ineq and Dim2 is Pop
+
+#Contributions of the variables to the PC
+var.cos2 = var.coord^2
+
+comp.cos2 = apply(var.cos2, 2, sum)
+contrib = function(var.cos2, comp.cos2)
+{var.cos2 * 100 / comp.cos2}
+
+var.contrib = t(apply(var.cos2, 1, contrib, comp.cos2))
+var.contrib[, 1:4]
+fviz_pca_var(uscrime.pca, col.var = "contrib") +
+scale_color_gradient2(low = "white", mid = "blue",
+high = "red", midpoint = 5) + theme_minimal()
+
+#The variables that has most contribution are in Dim1 Wealth and ineq. And in Dim2 M.F and Pop
+
+```
+
+###Question 2
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library(ggplot2)
+library(MASS)
+library(caTools)
+library(factoextra) # chart fviz_pca_var
+library(rpart)
+library(rpart.plot)
+library(ROCR)
+library(randomForest)
+library(caret)
+
+setwd("C:/Users/ce02144/Documents/HW4")
+
+#Reading data
+uscrime <- read.table("uscrime.txt", header = TRUE)
+
+#splitting data
+spl = sample.split(uscrime, 0.7)
+train = subset(uscrime, spl == T)
+test = subset(uscrime, spl == F)
+
+
+#Runnung tree and random forest. Anova for tree regression
+cart.model = rpart(Crime ~ . , data = train, method = "anova")
+
+#Plotting tree
+rpart.plot(cart.model)
+#Pretty small tree
+
+# display the results 
+printcp(cart.model) 
+
+# visualize cross-validation results
+plotcp(cart.model)  
+
+#I want to know what happend if I force the model for a broader tree
+
+cart.model.broad = rpart(Crime ~ . , data = train, method = "anova", minsplit = 2)
+# create additional plots 
+rpart.plot(cart.model.broad)
+# display the results 
+printcp(cart.model.broad) 
+# visualize cross-validation results 
+plotcp(cart.model.broad) 
+
+#the last tree could show more information but the cost if a higher noise. So depend of the analysis of cost-benefic it could be an approah for decision
+
+#running Random Forest
+rf.model = train(Crime ~ . , data = train, method = "rf", metric = "RMSE", preProc = c("center", "scale"))
+
+#plotting #tree vs RMSE
+plot(rf.model$finalModel)
+
+#making prediction
+pred.cart = predict(cart.model, newdata = test)
+pred.rf = predict(rf.model, newdata = test)
+
+#Measuring quality of model
+ModelMetrics::mse(test$Crime, pred.cart)
+ModelMetrics::mse(test$Crime, pred.rf)
+
+#As rf could use different trees has a better fit
+```
+
+
+###Question 3
+
+A logistic regression for could be *buy, sell or maintain a equity ETF*. And ETF is an exchange-traded fund.  
+
+**The possible outcome and threshold could be:**  
+
+1. Sell. Threshold < 40%
+2. Maintain. Threshold >= 40 & <= 60%
+3. Buy. Threshold > 60%
+
+**As a predictors I could use:**  
+CPI actual - CPI Forecast  	
+Central Bank Rate	actual - Central Bank Forecast	
+GDP actual - GDP Forecast  
+Consumer Sentiment  
+Private Payrolls  
+Dividend Yield - Corporate Bond Yield  
+US 2year - US 10year yield spread  
+Price to Earning ratio  
+Price to Book Ratio  
+Leading indicator  
+
+
+###Question 4
+
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library(randomForest)
+library(caTools)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(SnowballC)
+library(ROCR)
+
+setwd("C:/Users/ce02144/Documents/HW4")
+
+#Reading data
+germancredit <- read.table("germancredit.txt", header = TRUE)
+str(germancredit)
+
+germancredit$X1.1[germancredit$X1.1 == 2] = 0
+germancredit$X1.1 <- factor(germancredit$X1.1, labels = c('Bad', 'Good'))
+
+table(germancredit$X1.1)
+
+good = 699/(300+699)
+bad = 1- good
+good
+bad
+
+spl = sample.split(germancredit$X1.1, 0.7)
+train = subset(germancredit, spl == T)
+test = subset(germancredit, spl == F)
+
+# Part 1
+
+#Logit regression
+logisticModel = glm(X1.1 ~  ., 
+                    family = binomial(link='logit'),
+                    data = train)
+
+summary(logisticModel)
+
+#showing coefficients of the model
+coefficients(logisticModel)
+
+#Part 2
+
+predLog = predict(logisticModel, newdata = test,type = "response" )
+#  Taking into account that incorrectly identifying a bad customer as good, is 5 times worse than incorrectly classifying a good customer as bad, the threshold is 1 to 5 or 80% 
+
+table(test$X1.1, predLog >= 0.8)
+acc = table(test$X1.1, predLog >= 0.8)
+# acurracy (True Positve + True Negative) / Total
+(acc[1,1]+ acc[2,2])/(nrow(test))
+
+
+#Checking for AUC and ROC
+predRocLog = prediction(predLog, test$X1.1)
+as.numeric(performance(predRocLog, "auc")@y.values)
+# Building ROC Prediction function
+ROCRpred = prediction(predLog , test$X1.1)
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf, colorize = TRUE, print.cutoffs.at = seq(0,1,by = 0.1), text.adj = c(-0.2,1.7))
+
+#The 80% threshold give us a rate near to 20% of false posive
+#And near to 60% of True posive. 
+
+```
