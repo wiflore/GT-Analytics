@@ -1,0 +1,114 @@
+---
+title: "HW5"
+author: "William Florez"
+date: "20 de junio de 2017"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Q1
+
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library('caret')
+library('glmnet')
+library('parallel')
+library("MASS")
+set.seed(1)
+#setwd("C:/Users/ce02144/Documents/HW4")
+setwd("~/Dropbox/WILL/DataScience/GT Analytics/Introduction_to_Analytics_Modeling/HW4")
+
+#Reading data
+uscrime =  read.table("uscrime.txt", header = TRUE)
+
+#step seleccion
+crime.scale = data.frame(scale(uscrime))
+model.lm = lm(Crime ~ ., data = crime.scale)
+model.step =  step(model.lm, direction = 'both')
+
+#testing ANOVA
+model.step.aic =  stepAIC(model.lm, direction="both")
+model.step.aic$anova
+
+x = as.matrix(crime.scale[-16])
+y = as.matrix(crime.scale[16])
+
+
+
+# Lasso, ridge, elastic net cross validation
+
+model.lasso =  glmnet(x = x, y = y, 
+                      family = 'gaussian', alpha = 1)
+
+
+#Results
+#Numbers of coefficients upper, lambda x, mse y
+plot(model.lasso, xvar = "lambda")
+coef(model.lasso, s = model.lasso$lambda.min)
+
+
+# Lasso cross validation
+
+model.lasso.cv =  cv.glmnet(x = x, y = y, 
+                      family = 'gaussian', alpha = 1, nfolds = 5)
+
+
+#Results
+#suggest between 5 to 12 coerfficients
+plot(model.lasso.cv, xvar="lambda")
+model.lasso.cv$lambda.min
+model.lasso.cv$lambda.1se
+coef(model.lasso.cv, s = model.lasso.cv$lambda.min) #best coefficients
+
+#alpha comparation
+
+
+# alpha comparison plots lasso, ridge, elastic net
+cv.alpha.0 =  cv.glmnet(x = x, y = y, 
+                      family = 'gaussian', alpha = 0, nfolds = 5)
+cv.alpha.05 =  cv.glmnet(x = x, y = y, 
+                      family = 'gaussian', alpha = 0.5, nfolds = 5)
+cv.alpha.1 = cv.glmnet(x = x, y = y, 
+                      family = 'gaussian', alpha = 1, nfolds = 5)
+
+# Elastic Net
+plot( log(cv.alpha.0$lambda), cv.alpha.0$cvm, pch = 20, col = "red", xlab = "log(Lambda)", ylab = cv.alpha.0$name)
+points(log(cv.alpha.05$lambda), cv.alpha.05$cvm, pch = 20, col = "blue")
+points(log(cv.alpha.1$lambda), cv.alpha.1$cvm, pch = 20, col="green")
+legend("topleft", legend = c("alpha 0 - ridge","alpha .5", "alpha 1 - lasso"), pch = 20, col = c("red", "blue", "green"))
+
+
+
+
+```
+
+### Q2  
+
+To determine if which type of music to listen when a person drive to home after work reduce stress. I suggest to evaluate if the driver start drives agressive, temperature, if taking longer than usual to arrive some destination (with gps historial data), car smell. We could evaluate to start playlist to calm down and manipulate car temperature and car smell.  
+
+### Q3
+
+
+```{r echo = T, eval = T, warning=FALSE, message=TRUE}
+
+library('FrF2')
+library(knitr)
+
+features <- c('Feature 1','Feature 2','Feature 3','Feature 4','Feature 5', 'Feature 6','Feature 7','Feature 8','Feature 9','Feature 10')
+
+experiment <- FrF2(nruns = 16, factor.names = features, default.levels = c("include", "not include"))
+
+kable(experiment, caption = "Experiment Features")
+```
+### Q4
+
+a. Binomial: The number of successful sales calls    
+b. Geometric: Expected number of trade win before a bad trade with a robot system  
+c. Poisson: The daily number of emergency calls in Dallas    
+d. Exponential: The length of time between arrivals at a service station  
+e. Weibull
